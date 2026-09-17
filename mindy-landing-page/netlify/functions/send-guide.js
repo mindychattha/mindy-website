@@ -60,6 +60,8 @@ exports.handler = async (event) => {
   const mailgunUrl = `https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`;
 
   // ---------- Branded HTML template ----------
+  // bodyHtml: the inner content for this specific email (paragraphs, a button, etc.)
+  // ctaText / ctaUrl: optional button shown below the body content
   function renderEmail({ bodyHtml, ctaText, ctaUrl }) {
     const button = ctaText && ctaUrl
       ? `<tr><td style="padding:28px 40px 8px;">
