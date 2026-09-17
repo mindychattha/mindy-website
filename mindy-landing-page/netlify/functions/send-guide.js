@@ -4,6 +4,7 @@
 //      a lead notification to Mindy
 //   2. Day 2: a short value/tip email (different content for buyer vs seller)
 //   3. Day 5: a gentle nudge toward booking a free consultation
+// All recipient-facing emails use a branded HTML template (logo, colors, footer).
 //
 // Required environment variables (Netlify: Project configuration ->
 // Environment variables):
@@ -40,6 +41,7 @@ exports.handler = async (event) => {
   const REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || NOTIFY_EMAIL;
   const SITE_URL = (process.env.SITE_URL || 'https://mindychattha.com').replace(/\/$/, '');
   const BOOKING_URL = `${SITE_URL}/#book`;
+  const LOGO_URL = `${SITE_URL}/images/logo_web.png`;
 
   if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
     console.error('Missing MAILGUN_API_KEY or MAILGUN_DOMAIN environment variables');
@@ -56,6 +58,62 @@ exports.handler = async (event) => {
 
   const auth = 'Basic ' + Buffer.from(`api:${MAILGUN_API_KEY}`).toString('base64');
   const mailgunUrl = `https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`;
+
+  // ---------- Branded HTML template ----------
+  function renderEmail({ bodyHtml, ctaText, ctaUrl }) {
+    const button = ctaText && ctaUrl
+      ? `<tr><td style="padding:28px 40px 8px;">
+           <a href="${ctaUrl}" style="display:inline-block; background:#1D3025; color:#F7F6F2; text-decoration:none; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; padding:14px 28px; border-radius:2px;">${ctaText}</a>
+         </td></tr>`
+      : '';
+
+    return `
+<!DOCTYPE html>
+<html>
+<body style="margin:0; padding:0; background:#F1EFE7;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F1EFE7; padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#F7F6F2; border-radius:6px; overflow:hidden;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#1D3025; padding:28px 40px; text-align:center;">
+              <img src="${LOGO_URL}" alt="Mindy Chattha" width="64" style="display:block; margin:0 auto 10px; filter:brightness(0) invert(1);">
+              <div style="font-family:Georgia,'Times New Roman',serif; font-style:italic; color:#F7F6F2; font-size:16px;">Make Your Move with Mindy</div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 40px 8px; font-family:Arial,Helvetica,sans-serif; font-size:15.5px; line-height:1.6; color:#2A2A28;">
+              ${bodyHtml}
+            </td>
+          </tr>
+
+          ${button}
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:32px 40px 28px;">
+              <hr style="border:none; border-top:1px solid rgba(29,48,37,0.15); margin:0 0 20px;">
+              <div style="font-family:Arial,Helvetica,sans-serif; font-size:13.5px; color:#5b5b58; line-height:1.6;">
+                <strong style="color:#1D3025;">Mindy Chattha</strong><br>
+                REALTOR&reg;, CENTURY 21 Bamber Realty Ltd.<br>
+                1612 17 Ave SW, Calgary, AB<br>
+                <a href="tel:14039660921" style="color:#5b5b58; text-decoration:none;">(403) 966-0921</a> &middot;
+                <a href="mailto:mindy@mindychattha.ca" style="color:#5b5b58; text-decoration:none;">mindy@mindychattha.ca</a>
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  }
 
   async function sendMail({ to, subject, text, html, replyTo, deliverAt }) {
     const params = new URLSearchParams();
@@ -88,6 +146,11 @@ exports.handler = async (event) => {
   const day5 = new Date(Date.now() + 5 * DAY);
 
   // ---------- Email 1 (immediate): the guide itself ----------
+  const guideBodyHtml =
+    `<p>Hi ${firstName},</p>` +
+    `<p>Thanks for requesting the <strong>${guideLabel}</strong>! Your download is ready below.</p>` +
+    `<p>If anything comes up as you read through it, just reply to this email or call/text (403) 966-0921 &mdash; happy to help.</p>`;
+
   const guestResult = await sendMail({
     to: email,
     replyTo: REPLY_TO_EMAIL,
@@ -98,37 +161,36 @@ exports.handler = async (event) => {
       `If anything comes up as you read through it, just reply to this email or call/text ` +
       `(403) 966-0921 — happy to help.\n\n` +
       `Mindy Chattha\nREALTOR®, CENTURY 21 Bamber Realty Ltd.`,
-    html:
-      `<p>Hi ${firstName},</p>` +
-      `<p>Thanks for requesting the ${guideLabel}! Here's your download:</p>` +
-      `<p><a href="${guideUrl}">${guideUrl}</a></p>` +
-      `<p>If anything comes up as you read through it, just reply to this email or call/text ` +
-      `(403) 966-0921 — happy to help.</p>` +
-      `<p>Mindy Chattha<br>REALTOR®, CENTURY 21 Bamber Realty Ltd.</p>`,
+    html: renderEmail({
+      bodyHtml: guideBodyHtml,
+      ctaText: `Download the ${guideLabel}`,
+      ctaUrl: guideUrl,
+    }),
   });
 
   // ---------- Email 2 (Day 2): a value/tip email ----------
   const tipSubject = isSeller
     ? 'One thing that surprises most sellers'
     : 'A quick tip before you start touring homes';
+  const tipBodyHtml = isSeller
+    ? `<p>Hi ${firstName},</p>` +
+      `<p>Quick one: most sellers spend money on the wrong things before listing. Fresh paint and decluttering ` +
+      `almost always pay off &mdash; big renovations almost never do, at least not at resale.</p>` +
+      `<p>If you want a second opinion on what's actually worth doing for your specific place, just reply and let me know a bit about it.</p>`
+    : `<p>Hi ${firstName},</p>` +
+      `<p>Quick one: get pre-approved before you start seriously touring homes, not after. It tells you your ` +
+      `real price range and makes your offer stronger when you find the right place.</p>` +
+      `<p>If you want to talk through where you stand, just reply and let me know.</p>`;
   const tipText = isSeller
-    ? `Hi ${firstName},\n\n` +
-      `Quick one: most sellers spend money on the wrong things before listing. Fresh paint and decluttering ` +
-      `almost always pay off — big renovations almost never do, at least not at resale.\n\n` +
-      `If you want a second opinion on what's actually worth doing for your specific place, just reply and ` +
-      `let me know a bit about it.\n\n` +
-      `Mindy`
-    : `Hi ${firstName},\n\n` +
-      `Quick one: get pre-approved before you start seriously touring homes, not after. It tells you your ` +
-      `real price range and makes your offer stronger when you find the right place.\n\n` +
-      `If you want to talk through where you stand, just reply and let me know.\n\n` +
-      `Mindy`;
+    ? `Hi ${firstName},\n\nQuick one: most sellers spend money on the wrong things before listing. Fresh paint and decluttering almost always pay off — big renovations almost never do, at least not at resale.\n\nIf you want a second opinion on what's actually worth doing for your specific place, just reply and let me know a bit about it.\n\nMindy`
+    : `Hi ${firstName},\n\nQuick one: get pre-approved before you start seriously touring homes, not after. It tells you your real price range and makes your offer stronger when you find the right place.\n\nIf you want to talk through where you stand, just reply and let me know.\n\nMindy`;
 
   await sendMail({
     to: email,
     replyTo: REPLY_TO_EMAIL,
     subject: tipSubject,
     text: tipText,
+    html: renderEmail({ bodyHtml: tipBodyHtml }),
     deliverAt: day2,
   });
 
@@ -136,25 +198,31 @@ exports.handler = async (event) => {
   const nudgeSubject = isSeller
     ? 'Curious what your home is worth right now?'
     : 'Still exploring, or ready to chat?';
+  const nudgeBodyHtml = isSeller
+    ? `<p>Hi ${firstName},</p>` +
+      `<p>No pressure at all &mdash; just wanted to leave the door open. If you're curious what your home would ` +
+      `sell for in today's market, or just want to talk timing, grab a free 20-minute slot below.</p>`
+    : `<p>Hi ${firstName},</p>` +
+      `<p>No pressure at all &mdash; just wanted to leave the door open. If you want a real answer on what you ` +
+      `can afford or just want to talk through next steps, grab a free 20-minute slot below.</p>`;
   const nudgeText = isSeller
-    ? `Hi ${firstName},\n\n` +
-      `No pressure at all — just wanted to leave the door open. If you're curious what your home would sell ` +
-      `for in today's market, or just want to talk timing, you can grab a free 20-minute slot here:\n${BOOKING_URL}\n\n` +
-      `Mindy`
-    : `Hi ${firstName},\n\n` +
-      `No pressure at all — just wanted to leave the door open. If you want a real answer on what you can ` +
-      `afford or just want to talk through next steps, you can grab a free 20-minute slot here:\n${BOOKING_URL}\n\n` +
-      `Mindy`;
+    ? `Hi ${firstName},\n\nNo pressure at all — just wanted to leave the door open. If you're curious what your home would sell for in today's market, or just want to talk timing, you can grab a free 20-minute slot here:\n${BOOKING_URL}\n\nMindy`
+    : `Hi ${firstName},\n\nNo pressure at all — just wanted to leave the door open. If you want a real answer on what you can afford or just want to talk through next steps, you can grab a free 20-minute slot here:\n${BOOKING_URL}\n\nMindy`;
 
   await sendMail({
     to: email,
     replyTo: REPLY_TO_EMAIL,
     subject: nudgeSubject,
     text: nudgeText,
+    html: renderEmail({
+      bodyHtml: nudgeBodyHtml,
+      ctaText: 'Book My Free Call',
+      ctaUrl: BOOKING_URL,
+    }),
     deliverAt: day5,
   });
 
-  // ---------- Lead notification to Mindy (immediate) ----------
+  // ---------- Lead notification to Mindy (immediate, plain) ----------
   const notifyResult = await sendMail({
     to: NOTIFY_EMAIL,
     subject: `New ${guideLabel} sign-up: ${firstName}`,
