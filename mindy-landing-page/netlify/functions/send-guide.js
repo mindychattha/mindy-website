@@ -49,9 +49,16 @@ exports.handler = async (event) => {
   }
 
   const isSeller = formName === 'seller-guide-request';
-  const guideLabel = isSeller ? "Seller's Guide" : "Buyer's Guide";
+  const isMarketReport = formName === 'market-report-request';
+  const guideLabel = isSeller
+    ? "Seller's Guide"
+    : isMarketReport
+    ? 'Calgary Buyer Report'
+    : "Buyer's Guide";
   const guideFile = isSeller
     ? 'Mindy-Chattha-Sellers-Guide.pdf'
+    : isMarketReport
+    ? 'Mindy-Chattha-Calgary-Buyer-Report.pdf'
     : 'Mindy-Chattha-Buyers-Guide.pdf';
   const guideUrl = `${SITE_URL}/guides/${guideFile}`;
   const firstName = String(name).split(' ')[0];
@@ -173,18 +180,27 @@ exports.handler = async (event) => {
   // ---------- Email 2 (Day 2): a value/tip email ----------
   const tipSubject = isSeller
     ? 'One thing that surprises most sellers'
+    : isMarketReport
+    ? "How to read the report's numbers"
     : 'A quick tip before you start touring homes';
   const tipBodyHtml = isSeller
     ? `<p>Hi ${firstName},</p>` +
       `<p>Quick one: most sellers spend money on the wrong things before listing. Fresh paint and decluttering ` +
       `almost always pay off &mdash; big renovations almost never do, at least not at resale.</p>` +
       `<p>If you want a second opinion on what's actually worth doing for your specific place, just reply and let me know a bit about it.</p>`
+    : isMarketReport
+    ? `<p>Hi ${firstName},</p>` +
+      `<p>Quick one: the number that matters most in the report is days on market for the home type you're looking at. ` +
+      `The longer a listing has sat, the more room there usually is to negotiate below asking.</p>` +
+      `<p>Tell me the area and home type you're watching and I'll send you the actual sold prices behind these averages.</p>`
     : `<p>Hi ${firstName},</p>` +
       `<p>Quick one: get pre-approved before you start seriously touring homes, not after. It tells you your ` +
       `real price range and makes your offer stronger when you find the right place.</p>` +
       `<p>If you want to talk through where you stand, just reply and let me know.</p>`;
   const tipText = isSeller
     ? `Hi ${firstName},\n\nQuick one: most sellers spend money on the wrong things before listing. Fresh paint and decluttering almost always pay off — big renovations almost never do, at least not at resale.\n\nIf you want a second opinion on what's actually worth doing for your specific place, just reply and let me know a bit about it.\n\nMindy`
+    : isMarketReport
+    ? `Hi ${firstName},\n\nQuick one: the number that matters most in the report is days on market for the home type you're looking at. The longer a listing has sat, the more room there usually is to negotiate below asking.\n\nTell me the area and home type you're watching and I'll send you the actual sold prices behind these averages.\n\nMindy`
     : `Hi ${firstName},\n\nQuick one: get pre-approved before you start seriously touring homes, not after. It tells you your real price range and makes your offer stronger when you find the right place.\n\nIf you want to talk through where you stand, just reply and let me know.\n\nMindy`;
 
   await sendMail({
@@ -199,16 +215,24 @@ exports.handler = async (event) => {
   // ---------- Email 3 (Day 5): nudge toward booking ----------
   const nudgeSubject = isSeller
     ? 'Curious what your home is worth right now?'
+    : isMarketReport
+    ? 'Want the numbers for your specific area?'
     : 'Still exploring, or ready to chat?';
   const nudgeBodyHtml = isSeller
     ? `<p>Hi ${firstName},</p>` +
       `<p>No pressure at all &mdash; just wanted to leave the door open. If you're curious what your home would ` +
       `sell for in today's market, or just want to talk timing, grab a free 20-minute slot below.</p>`
+    : isMarketReport
+    ? `<p>Hi ${firstName},</p>` +
+      `<p>No pressure at all &mdash; just wanted to leave the door open. If you'd like the sold prices and days ` +
+      `on market for your specific area and budget, grab a free 20-minute slot below.</p>`
     : `<p>Hi ${firstName},</p>` +
       `<p>No pressure at all &mdash; just wanted to leave the door open. If you want a real answer on what you ` +
       `can afford or just want to talk through next steps, grab a free 20-minute slot below.</p>`;
   const nudgeText = isSeller
     ? `Hi ${firstName},\n\nNo pressure at all — just wanted to leave the door open. If you're curious what your home would sell for in today's market, or just want to talk timing, you can grab a free 20-minute slot here:\n${BOOKING_URL}\n\nMindy`
+    : isMarketReport
+    ? `Hi ${firstName},\n\nNo pressure at all — just wanted to leave the door open. If you'd like the sold prices and days on market for your specific area and budget, you can grab a free 20-minute slot here:\n${BOOKING_URL}\n\nMindy`
     : `Hi ${firstName},\n\nNo pressure at all — just wanted to leave the door open. If you want a real answer on what you can afford or just want to talk through next steps, you can grab a free 20-minute slot here:\n${BOOKING_URL}\n\nMindy`;
 
   await sendMail({
